@@ -1,0 +1,16 @@
+{
+  "name": "plugin-todoocard-general",
+  "author": "Gt841",
+  "url": "https://github.com/Gt841/plugin-todoocard-general",
+  "version": "0.1.0",
+  "minAppVersion": "3.0.1",
+  "backends": ["darwin", "win32"],
+  "frontends": ["desktop", "desktop-window"],
+  "displayName": { "en_US": "TodooCard General", "zh_CN": "土豆片通用" },
+  "description": {
+    "en_US": "Cross-platform SiYuan client for TodooCard 528x792 e-paper cards, powered by the pure-Python todoocard-general-core.",
+    "zh_CN": "基于纯 Python 通用核心，在思源中跨 macOS / Windows 配对并给土豆片墨水屏传图。"
+  },
+  "readme": { "default": "README.md" },
+  "keywords": ["todoocard", "eink", "bluetooth", "墨水屏", "传图", "windows"]
+}
