@@ -93,14 +93,20 @@ Windows：
 
 ## 核心来源与下载策略
 
-- 默认来源：`https://github.com/Gt841/plugin-todoocard-general-core/commit/9d85a66f4eeacde253f53a9b66f7cc2715edd263`
-- 默认来源的 tarball SHA-256 固定为 `09f3fa009ff487079534d34395317b1976244702e9adefa43d313e1f6fac7e2a`；直连或加速线路下载后都会先比对，不一致就拒绝安装。
+- 默认来源：`https://github.com/Gt841/plugin-todoocard-general-core/commit/97b3f1b7cc2ed4c616a03446fc7828b22d6ec1eb`
+- 默认来源的 tarball SHA-256 固定为 `e134e680ea04df4b85191c0d439f6e442b73735f54f81033bcbf88b6754e7d06`；直连或加速线路下载后都会先比对，不一致就拒绝安装。
 - **不会自动跟随 `main`**，也不会自动下载；必须点一次「下载 / 更新核心」。
 - 更新上游：在「设置 → 核心来源」把地址改成新的 commit 或 `main`，保存后点「下载 / 更新核心」。改成其他来源后没有可预知的固定摘要，只记录实际 SHA-256。
 - 下载线路可选：直连 GitHub（默认）、[gh-proxy.com](https://gh-proxy.com/)、[ghproxy.vip](https://ghproxy.vip/)。后两者是第三方加速服务，不是官方镜像，可用性和隐私策略由各自服务决定；插件只把原始 codeload 地址拼在它们后面。
 - 核心源码以 MIT 许可证开源，随下载保留 `LICENSE` 与 `NOTICE`。
 
 ## 更新记录
+
+### 0.1.1
+
+- 修复 macOS 真机发送卡在「Block size response timed out」的问题：加密链路建立后卡片会下发 Service Changed，CoreBluetooth 随即作废连接早期缓存的 GATT 树。核心现在读电量确认加密后等待 1.8 秒、重新发现服务再握手，与 Swift 核心一致。
+- 核心默认来源更新到 `97b3f1b`（SHA-256 `e134e680…`）。
+- 配对后自动探测失败时，提示改为展示探测侧的真实错误，不再重复显示「配对成功」。
 
 ### 0.1.0
 
@@ -131,10 +137,11 @@ Windows 可解压到 `%APPDATA%\SiYuan\data\plugins\plugin-todoocard-general`，
 ## 已验证范围
 
 - 插件单元测试 88/88 通过；TypeScript 检查与生产构建通过。
-- 核心侧 31 项测试通过，覆盖广告解析与描述契约、六色转换与面板/控制器坐标、legacy 包结构、QuickLZ 往返、CLI 输出契约、verified/legacy 传输状态机。
+- 核心侧 35 项测试通过，覆盖广告解析与描述契约、六色转换与面板/控制器坐标、legacy 包结构、QuickLZ 往返、CLI 输出契约、verified/legacy 传输状态机。
 - 插件路径、状态存储、核心安装（含下载失败保留旧核心、SHA 不一致拒绝安装）、扫描输出解析均有用例覆盖。
 - 安装链路实测：本地 HTTP 提供 tarball → 下载 → 解压归一化 → 原子替换 → 创建 venv → 安装依赖 → `todoocard_core --version` 自检，全部通过；安装后的核心可直接扫描与转换。
 - 真机 BLE（macOS）：扫描到两台 TodooCard（固件 v185，`manufacturer=0x5053`、`screen=0x134C`、turbo 开启），已配对设备完成加密探测并读到电量。
+- 真机发送（macOS，固件 v185）：修复 GATT 缓存后完成 675 块压缩传输，进度 100%，收到 `0x05/0x08` 刷新确认。
 - Windows 侧代码路径（WinRT、`py -3`、PATHEXT、`taskkill`、PowerShell 解压）已实现，仍建议在 Windows 机器上按 [验证清单](docs/real-machine-validation.md) 过一遍扫描、配对和发送。
 - 真实发送需要用户显式点选目标卡片；发送前会展示目标清单，只有收到 `0x05/0x08` 刷新确认才视为成功。
 

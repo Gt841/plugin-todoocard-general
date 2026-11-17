@@ -519,14 +519,23 @@ export class TodooService {
       this.selectedId = id;
       if (this.store.settings.autoProbeAfterPair) {
         this.job.message = "配对成功，正在验证设备…";
-        this.log("配对成功，自动执行一次探测验证…");
+        this.log(`${outcome.summary}，自动执行一次探测验证…`);
         this.push();
         const probeOutcome = await this.probeInternal(runner, id);
         if (probeOutcome.ok) {
           this.finish({ ...outcome, summary: `${outcome.summary}；${probeOutcome.summary}` });
           return;
         }
-        this.finish(outcome, { toast: true, prefix: "配对成功；探测失败：" });
+        // 之前这里把配对结果当成探测结果展示，用户只看到「配对成功」而看不到
+        // 探测失败的真实原因；现在明确报告探测侧的错误。
+        this.finish(
+          {
+            ok: false,
+            summary: "探测失败",
+            error: probeOutcome.error || probeOutcome.summary || "未收到探测成功确认",
+          },
+          { toast: true, prefix: "配对成功，但探测未通过：" },
+        );
         return;
       }
       this.finish(outcome);

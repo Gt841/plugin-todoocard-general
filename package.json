@@ -1,6 +1,6 @@
 {
   "name": "plugin-todoocard-general",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "make-link": "node --no-warnings ./scripts/make_dev_link.js",

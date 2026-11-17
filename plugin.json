@@ -2,7 +2,7 @@
   "name": "plugin-todoocard-general",
   "author": "Gt841",
   "url": "https://github.com/Gt841/plugin-todoocard-general",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "3.0.1",
   "backends": ["darwin", "win32"],
   "frontends": ["desktop", "desktop-window"],
