@@ -2,7 +2,7 @@
 
 > 在思源笔记里扫描、配对 TodooCard 墨水屏卡片，把图片直接发到 528×792 的屏幕上。**一个插件包同时支持 macOS 与 Windows 桌面端**，两端共用同一套纯 Python 核心。
 
-当前版本 **0.1.3** · 支持平台：macOS（CoreBluetooth）· Windows（WinRT） · MIT License
+当前版本 **0.1.4** · 支持平台：macOS（CoreBluetooth）· Windows（WinRT） · MIT License
 
 > 通用版与 macOS 专用版 `plugin-todoocard` 相互独立，可同时安装；数据目录分别为 `todoocard-general` 与 `todoocard`，不会互相覆盖。Windows 首次配对请在「设置 → 蓝牙」中完成系统绑定。
 
@@ -114,6 +114,10 @@ Windows：
 - 已有可用的系统 Python 3.9+ 时会直接复用；可用环境变量 `SIYUAN_TODOOCARD_PYTHON` 指定解释器，优先级高于内置运行时。
 
 ## 更新记录
+
+### 0.1.4
+
+- 修正集市校验失败：`plugin.json` 的 `backends` 平台标识从 Node 的 `win32` 改为思源规范的 `windows`（macOS 仍为 `darwin`）。功能无变化。
 
 ### 0.1.3
 

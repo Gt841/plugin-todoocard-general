@@ -2,9 +2,9 @@
   "name": "plugin-todoocard-general",
   "author": "Gt841",
   "url": "https://github.com/Gt841/plugin-todoocard-general",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "minAppVersion": "3.0.1",
-  "backends": ["darwin", "win32"],
+  "backends": ["darwin", "windows"],
   "frontends": ["desktop", "desktop-window"],
   "displayName": { "en_US": "TodooCard General", "zh_CN": "土豆片通用" },
   "description": {
