@@ -1,8 +1,8 @@
 import fs from "fs";
 import path from "path";
 import { StateStore, displayName } from "./store";
-import { checkPrerequisites, detectCore, installCore } from "./core";
-import { runSpawn } from "./fsutil";
+import { checkPrerequisites, detectCore, ensureVenv, installCore } from "./core";
+import { installPythonRuntime } from "./pythonRuntime";
 import { CoreRunner } from "./runner";
 import { classifyOutcome, parsePreparedPaths, parseScanLine, isDeviceId, type JobOutcome } from "./parse";
 import { normalizeSendTargets, summarizeBatch, type SendTargetResult } from "./batch";
@@ -55,7 +55,7 @@ export class TodooService {
 
   core: CoreView;
   prereq: PrereqView = {
-    checked: false, python: false, pythonVersion: "", platformSupported: false, venvReady: false, errors: [],
+    checked: false, python: false, pythonVersion: "", pythonSource: "", platformSupported: false, venvReady: false, errors: [],
   };
   live = new Map<string, DeviceInfo>();
   selectedId: string | null = null;
@@ -78,11 +78,9 @@ export class TodooService {
   private cancelRequested = false;
   private scanTimer: ReturnType<typeof setInterval> | null = null;
   private updateTimer: ReturnType<typeof setTimeout> | null = null;
-  private envTimer: ReturnType<typeof setInterval> | null = null;
-  private envDeadline = 0;
   private disposed = false;
 
-  /** 已拉起系统命令行工具安装器，正在轮询复查。 */
+  /** 正在下载 / 安装内置 Python 运行时。 */
   envInstalling = false;
 
   constructor(opts: ServiceOptions) {
@@ -121,7 +119,6 @@ export class TodooService {
     this.runner?.cancel();
     if (this.scanTimer) clearInterval(this.scanTimer);
     if (this.updateTimer) clearTimeout(this.updateTimer);
-    this.stopEnvPoll();
   }
 
   private push() {
@@ -297,8 +294,6 @@ export class TodooService {
 
   async recheckPrereq(): Promise<void> {
     this.prereq = await checkPrerequisites(this.stateDir);
-    this.envInstalling = false;
-    this.stopEnvPoll();
     this.core = detectCore(this.stateDir, this.store.settings.coreSourceUrl);
     this.preloadRunner();
     this.log(this.prereq.errors.length ? `环境检查：${this.prereq.errors.join("；")}` : "环境检查通过");
@@ -306,13 +301,12 @@ export class TodooService {
   }
 
   /**
-   * 引导安装 Python：
-   * - macOS：Xcode Command Line Tools 自带 python3，仍可一键拉起系统安装器；
-   * - Windows：打开 python.org 下载页，用户需勾选 Add python.exe to PATH。
-   * 拉起后每 4 秒自动复查，最多等待 10 分钟。
+   * 下载插件自带的 Python 运行时（python-build-standalone 的官方 CPython 构建）。
+   * 不碰系统 Python、不需要管理员权限，也不需要 Xcode Command Line Tools；
+   * 下载后按钉死的 SHA-256 校验，再整目录替换到 `<stateDir>/python`。
    */
   async installEnvironment(): Promise<void> {
-    if (this.envInstalling) return;
+    if (this.envInstalling || this.job.running) return;
     this.envInstalling = true;
     this.push();
     if (!this.prereq.checked) this.prereq = await checkPrerequisites(this.stateDir);
@@ -323,84 +317,55 @@ export class TodooService {
       return;
     }
 
-    let shouldPoll = true;
-    if (this.platform === "darwin") {
-      this.log("── 安装运行环境（Xcode Command Line Tools）──");
-      this.log("如弹出 macOS 安装窗口，请点击「安装」并等待完成；插件会自动复查。");
-      this.push();
-      try {
-        const r = await runSpawn("/usr/bin/xcode-select", ["--install"], { timeoutMs: 20_000 });
-        const output = [r.stdout, r.stderr].map((s) => s.trim()).filter(Boolean).join("\n");
-        if (output) this.log(output);
-        if (r.timedOut) {
-          this.log("安装器未在 20 秒内返回；如果系统窗口已打开，请继续完成安装。");
-        } else if (r.code !== 0) {
-          if (/already installed/i.test(output)) {
-            this.log("Command Line Tools 已安装但仍未找到 python3，可改从 python.org 安装 Python 3。");
-          } else {
-            shouldPoll = false;
-            this.log("未能自动拉起安装器；可手动在终端执行：xcode-select --install");
-          }
-        }
-      } catch (e) {
-        shouldPoll = false;
-        this.log(`拉起安装器失败：${String(e)}`);
-      }
-    } else if (this.platform === "win32") {
-      this.log("── 安装运行环境（Python 3）──");
-      this.log("已打开 python.org 下载页：安装时务必勾选 Add python.exe to PATH。");
-      this.push();
-      try {
-        await runSpawn("cmd", ["/c", "start", "", "https://www.python.org/downloads/windows/"], { timeoutMs: 15_000 });
-      } catch (e) {
-        shouldPoll = false;
-        this.log(`打开下载页失败：${String(e)}`);
-        this.log("请手动访问 https://www.python.org/downloads/windows/ 安装 Python 3.9+。");
-      }
-    } else {
-      shouldPoll = false;
-      this.log(`当前系统 ${this.platform} 暂不支持一键安装 Python，请先手动安装 Python 3.9+。`);
-    }
-
-    if (!shouldPoll) {
-      this.envInstalling = false;
-      this.log("完成手动安装后，点「重新检查」更新状态");
-      this.push();
-      return;
-    }
-    this.envDeadline = Date.now() + 10 * 60_000;
-    this.startEnvPoll();
+    this.job = {
+      kind: "install",
+      running: true,
+      message: "正在下载内置 Python 运行时…",
+      startedAt: Date.now(),
+      canCancel: false,
+    };
+    this.log("── 安装运行环境（内置 Python 运行时）──");
+    this.log("运行时来自 astral-sh/python-build-standalone，安装在插件数据目录，不修改系统 Python。");
     this.push();
-  }
 
-  private startEnvPoll() {
-    this.stopEnvPoll();
-    this.envTimer = setInterval(() => { void this.pollEnvironment(); }, 4_000);
-  }
-
-  private stopEnvPoll() {
-    if (this.envTimer) clearInterval(this.envTimer);
-    this.envTimer = null;
-  }
-
-  private async pollEnvironment() {
-    if (this.disposed) return;
-    const prereq = await checkPrerequisites(this.stateDir);
-    if (this.disposed) return;
-    this.prereq = prereq;
-    if (!prereq.errors.length) {
-      this.envInstalling = false;
-      this.stopEnvPoll();
+    try {
+      const meta = await installPythonRuntime({
+        stateDir: this.stateDir,
+        mirror: this.store.settings.downloadMirror,
+        onProgress: (m) => this.log(m),
+      });
+      this.log(`内置 Python ${meta.version} 已安装（${meta.sha256.slice(0, 10)}…）`);
+      if (this.core.installed && !this.core.ready) {
+        this.log("核心已安装，正在用内置 Python 补建虚拟环境…");
+        try {
+          await ensureVenv({ stateDir: this.stateDir, onProgress: (m) => this.log(m) });
+        } catch (e) {
+          this.log(`补建虚拟环境失败：${String(e)}`);
+        }
+      }
+      this.prereq = await checkPrerequisites(this.stateDir);
       this.core = detectCore(this.stateDir, this.store.settings.coreSourceUrl);
       this.preloadRunner();
-      this.log("环境检查通过，可以安装核心了");
-      this.notify("运行环境已就绪", "info");
-    } else if (Date.now() >= this.envDeadline) {
+      if (!this.prereq.errors.length) {
+        this.log(this.core.ready ? "运行环境已就绪，核心可用" : "运行环境已就绪，可以下载核心了");
+        this.notify("内置 Python 已就绪", "info");
+      } else {
+        for (const err of this.prereq.errors) this.log(`环境检查：${err}`);
+        this.notify("内置 Python 已安装，但环境复查仍未通过", "error");
+      }
+    } catch (e) {
+      this.log(`内置 Python 安装失败：${String(e)}`);
+      this.log(
+        this.platform === "win32"
+          ? "可稍后重试，或从 https://www.python.org/downloads/windows/ 手动安装 Python 3.9+ 并勾选 Add python.exe to PATH。"
+          : "可稍后重试，或手动安装 Python 3.9+（macOS 也可执行 xcode-select --install 使用系统自带 python3）。",
+      );
+      this.notify(`内置 Python 安装失败：${String(e)}`, "error");
+    } finally {
       this.envInstalling = false;
-      this.stopEnvPoll();
-      this.log("等待环境安装超时；完成系统安装后点「重新检查」");
+      this.job = { kind: null, running: false, message: "", startedAt: 0, canCancel: false };
+      this.push();
     }
-    this.push();
   }
 
   // ── 扫描 / 设备 ──────────────────────────────────────────────

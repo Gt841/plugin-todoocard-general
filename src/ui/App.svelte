@@ -73,9 +73,7 @@
   $: envReady = view.prereq.checked && view.prereq.errors.length === 0;
   $: canInstallCore = envReady && !view.job.running;
   $: platformLabel = view.platform === "win32" ? "Windows" : view.platform === "darwin" ? "macOS" : view.platform;
-  $: envHint = view.platform === "win32"
-    ? "会打开 python.org 下载页；安装时请勾选 Add python.exe to PATH，装完插件会自动复查。"
-    : "会打开 macOS 的 Xcode Command Line Tools 安装窗口，仍需在系统弹窗中确认。";
+  $: envHint = "会下载插件自带的 Python 运行时（约 25–47 MB），安装到数据目录，不修改系统 Python，也不需要 Xcode 命令行工具。";
   $: canAutoInstallEnv = view.platform === "darwin" || view.platform === "win32";
   $: bingBusy = view.job.running && view.job.kind === "bing";
   $: isWall = cardStyle.layout === "wall";
@@ -760,12 +758,12 @@
         <p>
           本插件不内置发送逻辑，核心来自
           <a href="https://github.com/Gt841/plugin-todoocard-general-core" target="_blank" rel="noreferrer">Gt841/plugin-todoocard-general-core</a>。
-          点击下载后会保存到思源同步范围之外的目录，并从核心自带的 Python 代码创建虚拟环境；
+          点击下载后会保存到思源同步范围之外的目录，并用插件自带的 Python 运行时创建虚拟环境；
           之后扫描、配对、传图都调用这份通用核心。
         </p>
         <div class="checklist">
           <div class:ok={view.prereq.python || view.prereq.venvReady} class="check">
-            <span class="check-dot"></span>Python 3.9+{#if view.prereq.pythonVersion} · {view.prereq.pythonVersion}{/if}
+            <span class="check-dot"></span>Python 3.9+{#if view.prereq.pythonVersion} · {view.prereq.pythonVersion}{/if}{#if view.prereq.pythonSource === "bundled"} · 内置{/if}
           </div>
           <div class:ok={view.prereq.platformSupported} class="check">
             <span class="check-dot"></span>{platformLabel}
@@ -783,13 +781,13 @@
           </ul>
         {/if}
         {#if view.envInstalling}
-          <p class="fineprint">正在等待系统安装完成，插件会自动复查…</p>
+          <p class="fineprint">正在下载内置 Python 运行时，请保持网络连接…</p>
         {/if}
         {#if !envReady && canAutoInstallEnv}
           <div class="env-actions">
             <button class="b3-button b3-button--outline accent" on:click={installEnvironment}
               disabled={view.envInstalling || view.job.running}>
-              {view.envInstalling ? "等待安装完成…" : "安装运行环境"}
+              {view.envInstalling ? "正在下载运行时…" : "安装内置 Python"}
             </button>
             <button class="b3-button b3-button--outline small" on:click={() => dispatch("recheck")}
               disabled={view.job.running}>重新检查</button>
@@ -1302,7 +1300,7 @@
             <h4>环境</h4>
             <div class="checklist inline">
               <div class:ok={view.prereq.python || view.prereq.venvReady} class="check">
-                <span class="check-dot"></span>Python 3.9+{#if view.prereq.pythonVersion} · {view.prereq.pythonVersion}{/if}
+                <span class="check-dot"></span>Python 3.9+{#if view.prereq.pythonVersion} · {view.prereq.pythonVersion}{/if}{#if view.prereq.pythonSource === "bundled"} · 内置{/if}
               </div>
               <div class:ok={view.prereq.platformSupported} class="check"><span class="check-dot"></span>{platformLabel}</div>
               <div class:ok={view.prereq.venvReady} class="check"><span class="check-dot"></span>核心依赖</div>
@@ -1314,13 +1312,13 @@
               <ul class="errors">{#each view.prereq.errors as err}<li>{err}</li>{/each}</ul>
             {/if}
             {#if view.envInstalling}
-              <p class="fineprint">正在等待系统安装完成，插件会自动复查…</p>
+              <p class="fineprint">正在下载内置 Python 运行时，请保持网络连接…</p>
             {/if}
             <div class="env-actions">
               {#if !envReady && canAutoInstallEnv}
                 <button class="b3-button b3-button--outline accent" on:click={installEnvironment}
                   disabled={view.envInstalling || view.job.running}>
-                  {view.envInstalling ? "等待安装完成…" : "安装运行环境"}
+                  {view.envInstalling ? "正在下载运行时…" : "安装内置 Python"}
                 </button>
               {/if}
               <button class="b3-button b3-button--outline small" on:click={() => dispatch("recheck")} disabled={view.job.running}>重新检查</button>

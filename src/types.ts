@@ -86,6 +86,8 @@ export interface PrereqView {
   /** 找到可用的 Python 3.9+ 解释器。 */
   python: boolean;
   pythonVersion: string;
+  /** "bundled"：插件下载的内置运行时；"system"：环境变量或系统 PATH。 */
+  pythonSource: "bundled" | "system" | "";
   platformSupported: boolean;
   /** 插件数据目录下已经有可执行的 venv Python。 */
   venvReady: boolean;

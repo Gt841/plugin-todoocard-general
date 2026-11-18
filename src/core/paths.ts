@@ -51,20 +51,31 @@ export function isInside(parent: string, child: string): boolean {
 }
 
 /** 虚拟环境里的 Python 可执行文件；只依赖平台，不依赖是否已创建。 */
-export function venvPythonPath(venvDir: string, platform = process.platform): string {
+export function venvPythonPath(venvDir: string, platform: string = process.platform): string {
   return platform === "win32"
     ? path.join(venvDir, "Scripts", "python.exe")
     : path.join(venvDir, "bin", "python");
 }
 
-export function statePaths(stateDir: string, platform = process.platform) {
+/** 插件下载的独立 Python 运行时里的解释器（不依赖系统 Python）。 */
+export function runtimePythonPath(runtimeDir: string, platform: string = process.platform): string {
+  return platform === "win32"
+    ? path.join(runtimeDir, "python.exe")
+    : path.join(runtimeDir, "bin", "python3");
+}
+
+export function statePaths(stateDir: string, platform: string = process.platform) {
   const coreDir = path.join(stateDir, "core");
   const venvDir = path.join(stateDir, "venv");
+  const pythonRuntimeDir = path.join(stateDir, "python");
   return {
     dir: stateDir,
     stateFile: path.join(stateDir, "state.json"),
     coreDir,
     coreMetaFile: path.join(stateDir, "core-meta.json"),
+    pythonRuntimeDir,
+    pythonRuntimePython: runtimePythonPath(pythonRuntimeDir, platform),
+    pythonRuntimeMetaFile: path.join(stateDir, "python-meta.json"),
     venvDir,
     venvPython: venvPythonPath(venvDir, platform),
     payloadDir: path.join(stateDir, "cache", "payloads"),

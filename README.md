@@ -2,7 +2,7 @@
 
 > 在思源笔记里扫描、配对 TodooCard 墨水屏卡片，把图片直接发到 528×792 的屏幕上。**一个插件包同时支持 macOS 与 Windows 桌面端**，两端共用同一套纯 Python 核心。
 
-当前版本 **0.1.2** · 支持平台：macOS（CoreBluetooth）· Windows（WinRT） · MIT License
+当前版本 **0.1.3** · 支持平台：macOS（CoreBluetooth）· Windows（WinRT） · MIT License
 
 > 通用版与 macOS 专用版 `plugin-todoocard` 相互独立，可同时安装；数据目录分别为 `todoocard-general` 与 `todoocard`，不会互相覆盖。Windows 首次配对请在「设置 → 蓝牙」中完成系统绑定。
 
@@ -14,9 +14,9 @@
 
 macOS 使用 CoreBluetooth，Windows 使用 WinRT，两者由核心统一封装。插件里没有 `swiftc`、`sips` 或平台专属路径：图片解码、旋转、裁切、六色抖动和 payload 生成都在 Python 侧完成。设备 ID 同时接受 macOS 的 UUID 与 Windows 的 MAC 地址。
 
-### 环境引导，而不是把报错丢给用户
+### 自带 Python，环境问题不再丢给用户
 
-插件会检查 Python 3.9+、平台和核心依赖。缺 Python 时可以在面板里打开官方下载页（Windows 会提示勾选 Add python.exe to PATH），安装后自动复查。核心依赖安装在插件自己的 venv 里，不污染系统 Python，也不需要管理员权限。
+插件会检查 Python 3.9+、平台和核心依赖。缺 Python 时点一次 **安装内置 Python**：插件从 [astral-sh/python-build-standalone](https://github.com/astral-sh/python-build-standalone) 下载官方 CPython 3.12 运行时（约 25–47 MB），按钉死的 SHA-256 校验后安装到数据目录。不需要系统 Python、不需要 Xcode Command Line Tools，也没有管理员权限或 PATH 要求；核心依赖装在插件自己的 venv 里，不污染系统 Python。若本机已有可用的 Python 3.9+，插件会直接复用。
 
 ### 核心按需下载，安装可追溯
 
@@ -43,7 +43,7 @@ macOS 使用 CoreBluetooth，Windows 使用 WinRT，两者由核心统一封装�
 ## 快速开始
 
 1. 安装并启用插件，点击顶部栏「土豆片通用 · TodooCard General」图标。
-2. 完成 **环境检查**。缺少 Python 时点 **获取 Python**，安装后插件会自动复查；勾选核心依赖并下载。
+2. 完成 **环境检查**。缺少 Python 时点 **安装内置 Python**，插件会下载自带运行时并自动复查；核心依赖随核心一起安装。
 3. 点击 **下载核心**。国内网络慢时先把「下载线路」切到 `gh-proxy.com` 或 `ghproxy.vip`。
 4. 切到 **设备**，点 **扫描设备**，选中卡片；首次连接按提示长按卡片背面按钮完成配对。
 5. 切到 **图片**，选择/拖入图片或粘贴截图，调整取景框，点 **生成预览**；也可以切到 **卡片排版**，添加多张图片或 Bing 每日壁纸，填写文字后用三种版式生成卡片。
@@ -55,7 +55,7 @@ macOS 使用 CoreBluetooth，Windows 使用 WinRT，两者由核心统一封装�
 
 - macOS（Apple Silicon / Intel）或 Windows 10/11
 - SiYuan ≥ 3.0.1，桌面端
-- Python 3.9+（macOS 也可用 Command Line Tools 自带的 `python3`）
+- Python 3.9+，或使用插件下载的内置 Python 3.12 运行时（推荐；无需系统 Python 或 Xcode 命令行工具）
 - 首次扫描时允许应用使用蓝牙：
   - macOS：系统设置 → 隐私与安全性 → 蓝牙
   - Windows：设置 → 蓝牙和其他设备，并确认蓝牙已打开
@@ -79,6 +79,8 @@ macOS：
 ├── state.json        # 设置、设备备注、配对记录、上次选择
 ├── core/             # 通用核心副本（可重新下载覆盖）
 ├── core-meta.json    # 来源、SHA-256、安装时间
+├── python/           # 内置 Python 运行时（python-build-standalone）
+├── python-meta.json  # 运行时版本、资产名、SHA-256、安装时间
 ├── venv/             # 核心的 Python 虚拟环境
 ├── tmp/              # 下载/解压临时目录
 ├── cache/            # 预览与 payload 缓存
@@ -102,7 +104,22 @@ Windows：
 - 下载线路可选：直连 GitHub（默认）、[gh-proxy.com](https://gh-proxy.com/)、[ghproxy.vip](https://ghproxy.vip/)。后两者是第三方加速服务，不是官方镜像，可用性和隐私策略由各自服务决定；插件只把原始 codeload 地址拼在它们后面。
 - 核心源码以 MIT 许可证开源，随下载保留 `LICENSE` 与 `NOTICE`。
 
+## 内置 Python 运行时
+
+- 来源：`astral-sh/python-build-standalone` release `20261110`，CPython **3.12.16**（PSF License）。
+- 资产按平台/架构选择，摘要钉死在插件代码里，例如 macOS Apple Silicon：
+  `cpython-3.12.16+20261110-aarch64-apple-darwin-install_only.tar.gz` · SHA-256 `e956e60b…`。
+- 下载线路与核心共用；第三方加速只改传输地址，校验仍按原始摘要执行，不一致就拒绝安装。
+- 运行时安装到 `<数据目录>/python`，与 `venv/` 分开。升级运行时只替换 `python/`；已有 venv 若探测失败会自动重建。
+- 已有可用的系统 Python 3.9+ 时会直接复用；可用环境变量 `SIYUAN_TODOOCARD_PYTHON` 指定解释器，优先级高于内置运行时。
+
 ## 更新记录
+
+### 0.1.3
+
+- **新增内置 Python 运行时**：缺少 Python 时点「安装内置 Python」，插件下载官方 CPython 3.12.16（python-build-standalone），SHA-256 校验后安装到数据目录。macOS 不再需要 Xcode Command Line Tools，Windows 也不再需要 python.org 安装包或修改 PATH。
+- 环境检查会区分「内置」与「系统」Python，优先复用内置运行时；`SIYUAN_TODOOCARD_PYTHON` 仍可强制指定解释器，并修复了绝对路径不被识别的问题。
+- 内置运行时与 venv 分开存放，升级运行时不会删除已装依赖；venv 失效时自动重建。
 
 ### 0.1.2（首发通用版）
 
@@ -140,13 +157,14 @@ Windows 可解压到 `%APPDATA%\SiYuan\data\plugins\plugin-todoocard-general`，
 
 ## 已验证范围
 
-- 插件单元测试 88/88 通过；TypeScript 检查与生产构建通过。
+- 插件单元测试 96/96 通过；TypeScript 检查与生产构建通过。
 - 核心侧 40 项测试通过，覆盖广告解析与描述契约、六色转换与面板/控制器坐标、legacy 包结构、QuickLZ 往返、CLI 输出契约、verified/legacy 传输状态机、GATT 缓存刷新、manifest 版本与常量一致性。
-- 插件路径、状态存储、核心安装（含下载失败保留旧核心、SHA 不一致拒绝安装）、扫描输出解析均有用例覆盖。
+- 插件路径、状态存储、核心安装（含下载失败保留旧核心、SHA 不一致拒绝安装）、内置 Python 资产选择与校验、扫描输出解析均有用例覆盖。
 - 安装链路实测：本地 HTTP 提供 tarball → 下载 → 解压归一化 → 原子替换 → 创建 venv → 安装依赖 → `todoocard_core --version` 自检，全部通过；安装后的核心可直接扫描与转换。
+- 内置 Python 实测（macOS Apple Silicon）：从官方 release 下载 25 MB 资产 → SHA-256 匹配 → 解压安装 → `findPython` 选中内置 3.12.16 → 用它创建 venv 并完成依赖安装，全部通过。
 - 真机 BLE（macOS）：扫描到两台 TodooCard（固件 v185，`manufacturer=0x5053`、`screen=0x134C`、turbo 开启），已配对设备完成加密探测并读到电量。
 - 真机发送（macOS，固件 v185）：修复 GATT 缓存后完成 675 块压缩传输，进度 100%，收到 `0x05/0x08` 刷新确认。
-- Windows 侧代码路径（WinRT、`py -3`、PATHEXT、`taskkill`、PowerShell 解压）已实现，仍建议在 Windows 机器上按 [验证清单](docs/real-machine-validation.md) 过一遍扫描、配对和发送。
+- Windows 侧代码路径（WinRT、内置运行时下载、`py -3`、PATHEXT、`taskkill`、PowerShell 解压）已实现，仍建议在 Windows 机器上按 [验证清单](docs/real-machine-validation.md) 过一遍环境安装、扫描、配对和发送。
 - 真实发送需要用户显式点选目标卡片；发送前会展示目标清单，只有收到 `0x05/0x08` 刷新确认才视为成功。
 
 ## 许可与限制
@@ -154,4 +172,5 @@ Windows 可解压到 `%APPDATA%\SiYuan\data\plugins\plugin-todoocard-general`，
 - 本插件代码以 MIT 许可证开源。
 - 支持 macOS 与 Windows 桌面端；Linux 核心可用，但插件尚未开放。
 - 通用核心不随本仓库或 `package.zip` 分发，只在用户本机按需下载。
+- 内置 Python 运行时同样不随插件包分发，按需从 python-build-standalone 下载，遵循 CPython 的 PSF License。
 - HEIC 输入需要核心侧额外安装 `pillow-heif`；未安装时请在发送前转成 JPG/PNG。

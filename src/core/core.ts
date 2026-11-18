@@ -2,7 +2,8 @@ import fs from "fs";
 import path from "path";
 import { atomicReplaceDir, download, extractArchive, isZipUrl, runSpawn, sha256File, which } from "./fsutil";
 import { withDownloadMirror } from "./mirror";
-import { statePaths } from "./paths";
+import { runtimePythonPath, statePaths } from "./paths";
+import { pythonRuntimeInstalled } from "./pythonRuntime";
 import { DEFAULT_SOURCE_URL, PINNED_COMMIT, PINNED_SHA256 } from "./store";
 import type { CoreView, PrereqView } from "../types";
 
@@ -118,6 +119,8 @@ export interface PythonRuntime {
   cmd: string;
   args: string[];
   version: string;
+  /** 插件内置运行时，还是环境变量 / 系统 PATH 找到的解释器。 */
+  source: "bundled" | "system";
 }
 
 const PY_VERSION_CHECK = "import sys;print('%d.%d.%d' % sys.version_info[:3])";
@@ -131,22 +134,40 @@ function pythonEnv(): NodeJS.ProcessEnv {
   };
 }
 
+function isExecutableFile(file: string): boolean {
+  try {
+    if (!fs.statSync(file).isFile()) return false;
+    if (process.platform !== "win32") fs.accessSync(file, fs.constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * 找到可用的 Python 3.9+。Windows 优先用 `py -3` 启动器，避免商店占位
- * `python.exe`；环境变量 SIYUAN_TODOOCARD_PYTHON 可指定绝对路径。
+ * 找到可用的 Python 3.9+。优先级：
+ * 1. 环境变量 SIYUAN_TODOOCARD_PYTHON（绝对路径或 PATH 命令）；
+ * 2. 插件下载的内置运行时 `<stateDir>/python`；
+ * 3. 系统 PATH 里的 python3 / python（Windows 优先 `py -3`）。
  */
-export async function findPython(): Promise<PythonRuntime | null> {
+export async function findPython(stateDir?: string): Promise<PythonRuntime | null> {
   const forced = (process.env.SIYUAN_TODOOCARD_PYTHON || "").trim();
-  const candidates: { cmd: string; args: string[] }[] = [];
-  if (forced) candidates.push({ cmd: forced, args: [] });
+  const candidates: { cmd: string; args: string[]; source: "bundled" | "system" }[] = [];
+  if (forced) candidates.push({ cmd: forced, args: [], source: "system" });
+  if (stateDir && pythonRuntimeInstalled(stateDir)) {
+    candidates.push({ cmd: runtimePythonPath(path.join(stateDir, "python")), args: [], source: "bundled" });
+  }
   if (process.platform === "win32") {
-    candidates.push({ cmd: "py", args: ["-3"] }, { cmd: "python", args: [] }, { cmd: "python3", args: [] });
+    candidates.push({ cmd: "py", args: ["-3"], source: "system" }, { cmd: "python", args: [], source: "system" }, { cmd: "python3", args: [], source: "system" });
   } else {
-    candidates.push({ cmd: "python3", args: [] }, { cmd: "python", args: [] });
+    candidates.push({ cmd: "python3", args: [], source: "system" }, { cmd: "python", args: [], source: "system" });
   }
   const seen = new Set<string>();
   for (const candidate of candidates) {
-    const resolved = await which(candidate.cmd);
+    // 环境变量可能直接给绝对路径，`which` 只扫 PATH，不能处理绝对路径。
+    const resolved = path.isAbsolute(candidate.cmd)
+      ? (isExecutableFile(candidate.cmd) ? candidate.cmd : null)
+      : await which(candidate.cmd);
     if (!resolved || seen.has(resolved)) continue;
     seen.add(resolved);
     const r = await runSpawn(resolved, [...candidate.args, "-c", PY_VERSION_CHECK], {
@@ -157,7 +178,7 @@ export async function findPython(): Promise<PythonRuntime | null> {
     const m = r.stdout.trim().match(/^(\d+)\.(\d+)\.(\d+)$/m);
     if (!m) continue;
     if (Number(m[1]) !== 3 || Number(m[2]) < 9) continue;
-    return { cmd: resolved, args: candidate.args, version: m[0] };
+    return { cmd: resolved, args: candidate.args, version: m[0], source: candidate.source };
   }
   return null;
 }
@@ -213,12 +234,10 @@ export async function ensureVenv(opts: EnsureVenvOptions): Promise<void> {
   }
 
   if (!fs.existsSync(p.venvPython)) {
-    python = python || await (opts.pythonFinder || findPython)();
+    python = python || await (opts.pythonFinder || findPython)(opts.stateDir);
     if (!python) {
       throw new Error(
-        process.platform === "win32"
-          ? "未找到 Python 3.9+：请从 python.org 安装，并勾选 Add python.exe to PATH"
-          : "未找到 Python 3.9+：请先安装 Python 3，或在 macOS 执行 xcode-select --install",
+        "未找到 Python 3.9+：请回到首页点击「安装内置 Python」，插件会下载自带的运行时，不需要系统 Python",
       );
     }
     log(`创建 Python 虚拟环境（Python ${python.version}）…`);
@@ -333,16 +352,12 @@ export async function installCore(opts: InstallCoreOptions): Promise<CoreMeta> {
 
 export async function checkPrerequisites(stateDir?: string): Promise<PrereqView> {
   const errors: string[] = [];
-  const python = await findPython();
+  const python = await findPython(stateDir);
   const platformSupported = ["darwin", "win32", "linux"].includes(process.platform);
   const venvReady = stateDir ? fs.existsSync(statePaths(stateDir).venvPython) : false;
 
   if (!python && !venvReady) {
-    errors.push(
-      process.platform === "win32"
-        ? "未找到 Python 3.9+：请从 python.org 安装，并勾选 Add python.exe to PATH"
-        : "未找到 Python 3.9+：请安装 Python 3；macOS 也可执行 xcode-select --install",
-    );
+    errors.push("未找到 Python 3.9+：点击「安装内置 Python」即可下载插件自带的运行时，无需系统 Python 或 Xcode 命令行工具");
   }
   if (!platformSupported) {
     errors.push(`当前系统 ${process.platform} 未在支持范围内（macOS / Windows）`);
@@ -351,6 +366,7 @@ export async function checkPrerequisites(stateDir?: string): Promise<PrereqView>
     checked: true,
     python: !!python,
     pythonVersion: python?.version || "",
+    pythonSource: python?.source || "",
     platformSupported,
     venvReady,
     errors,
