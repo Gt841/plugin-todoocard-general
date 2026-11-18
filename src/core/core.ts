@@ -164,11 +164,20 @@ export async function findPython(): Promise<PythonRuntime | null> {
 
 async function verifyCoreModule(stateDir: string): Promise<string> {
   const p = statePaths(stateDir);
-  const r = await runSpawn(p.venvPython, ["-m", "todoocard_core", "--version"], {
-    cwd: p.coreDir,
-    env: pythonEnv(),
-    timeoutMs: 60000,
-  });
+  const opts = { cwd: p.coreDir, env: pythonEnv(), timeoutMs: 60000 };
+  // 核心 0.1.2 起提供 manifest，版本与兼容契约都从这里读。
+  const manifest = await runSpawn(p.venvPython, ["-m", "todoocard_core", "--manifest"], opts);
+  if (manifest.code === 0) {
+    try {
+      const data = JSON.parse(manifest.stdout);
+      if (data && typeof data.version === "string" && data.version) {
+        return `todoocard-general-core ${data.version}`;
+      }
+    } catch {
+      // 清单损坏时退回 --version，保留可用的自检结果。
+    }
+  }
+  const r = await runSpawn(p.venvPython, ["-m", "todoocard_core", "--version"], opts);
   if (r.code !== 0) {
     const detail = (r.stderr || r.stdout).trim().slice(-400) || `exit ${r.code}`;
     throw new Error(`核心自检失败：${detail}`);

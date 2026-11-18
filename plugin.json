@@ -12,5 +12,5 @@
     "zh_CN": "基于纯 Python 通用核心，在思源中跨 macOS / Windows 配对并给土豆片墨水屏传图。"
   },
   "readme": { "default": "README.md" },
-  "keywords": ["todoocard", "eink", "bluetooth", "墨水屏", "传图", "windows"]
+  "keywords": ["todoocard", "eink", "bluetooth", "墨水屏", "传图", "windows", "macos", "跨平台"]
 }

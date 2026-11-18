@@ -1,8 +1,10 @@
 # 土豆片通用 · TodooCard General for SiYuan
 
-> 在思源笔记里扫描、配对 TodooCard 墨水屏卡片，把图片直接发到 528×792 的屏幕上。macOS 与 Windows 桌面端共用一套核心。
+> 在思源笔记里扫描、配对 TodooCard 墨水屏卡片，把图片直接发到 528×792 的屏幕上。**一个插件包同时支持 macOS 与 Windows 桌面端**，两端共用同一套纯 Python 核心。
 
-当前版本 **0.1.0** · macOS / Windows 桌面端 · MIT License
+当前版本 **0.1.2** · 支持平台：macOS（CoreBluetooth）· Windows（WinRT） · MIT License
+
+> 通用版与 macOS 专用版 `plugin-todoocard` 相互独立，可同时安装；数据目录分别为 `todoocard-general` 与 `todoocard`，不会互相覆盖。Windows 首次配对请在「设置 → 蓝牙」中完成系统绑定。
 
 发送与图像转换由独立的纯 Python 核心 [Gt841/plugin-todoocard-general-core](https://github.com/Gt841/plugin-todoocard-general-core) 完成。本插件不重写传图管线，只负责运行环境、核心安装、设备管理和思源内的操作界面。核心是对 [Sunbelife/TodooCard_Skills](https://github.com/Sunbelife/TodooCard_Skills) 的跨平台重写，不包含、也不分发其 Swift 源码。
 
@@ -93,8 +95,8 @@ Windows：
 
 ## 核心来源与下载策略
 
-- 默认来源：`https://github.com/Gt841/plugin-todoocard-general-core/commit/df8fe4fb734363f4826f94051e7d4f5e08002290`
-- 默认来源的 tarball SHA-256 固定为 `326acecf56b7607620700af4211f8db92d0b736bc13393928aeec11695ff56e4`；直连或加速线路下载后都会先比对，不一致就拒绝安装。
+- 默认来源：`https://github.com/Gt841/plugin-todoocard-general-core/commit/8c72df5d2640cb3f556cea7270efe637c25a6238`
+- 默认来源的 tarball SHA-256 固定为 `7227befb27aec20465ca763419d91ad98db339ead03f45d0b02aa09fdef6a041`；直连或加速线路下载后都会先比对，不一致就拒绝安装。
 - **不会自动跟随 `main`**，也不会自动下载；必须点一次「下载 / 更新核心」。
 - 更新上游：在「设置 → 核心来源」把地址改成新的 commit 或 `main`，保存后点「下载 / 更新核心」。改成其他来源后没有可预知的固定摘要，只记录实际 SHA-256。
 - 下载线路可选：直连 GitHub（默认）、[gh-proxy.com](https://gh-proxy.com/)、[ghproxy.vip](https://ghproxy.vip/)。后两者是第三方加速服务，不是官方镜像，可用性和隐私策略由各自服务决定；插件只把原始 codeload 地址拼在它们后面。
@@ -102,14 +104,12 @@ Windows：
 
 ## 更新记录
 
-### 0.1.2
+### 0.1.2（首发通用版）
 
-- 核心默认来源更新到 `df8fe4f`（SHA-256 `326acecf…`）：GATT 缓存刷新对只读 `services` 属性的 bleak 版本做了兼容，避免刷新逻辑自身抛错。
-
-### 0.1.1
-
-- 修复 macOS 真机发送卡在「Block size response timed out」的问题：加密链路建立后卡片会下发 Service Changed，CoreBluetooth 随即作废连接早期缓存的 GATT 树。核心现在读电量确认加密后等待 1.8 秒、重新发现服务再握手，与 Swift 核心一致。
-- 核心默认来源更新到 `97b3f1b`（SHA-256 `e134e680…`）。
+- **一个插件包同时支持 macOS 与 Windows 桌面端**：两端共用同一套纯 Python 核心，配对、探测、发送走同一条协议状态机。
+- 核心默认来源更新到 `8c72df5`（SHA-256 `7227befb…`），对应核心 **v0.1.2**。
+- 核心新增 `manifest.json` 与 `--manifest` 版本清单；插件安装后优先用清单执行自检并读取版本，旧核心自动回退到 `--version`。
+- 修复 macOS 真机发送卡在「Block size response timed out」：加密链路建立后卡片下发 Service Changed，CoreBluetooth 会作废早期缓存的 GATT 树；核心读电量确认加密后等待 1.8 秒、重新发现服务再握手。
 - 配对后自动探测失败时，提示改为展示探测侧的真实错误，不再重复显示「配对成功」。
 
 ### 0.1.0
@@ -141,7 +141,7 @@ Windows 可解压到 `%APPDATA%\SiYuan\data\plugins\plugin-todoocard-general`，
 ## 已验证范围
 
 - 插件单元测试 88/88 通过；TypeScript 检查与生产构建通过。
-- 核心侧 36 项测试通过，覆盖广告解析与描述契约、六色转换与面板/控制器坐标、legacy 包结构、QuickLZ 往返、CLI 输出契约、verified/legacy 传输状态机、GATT 缓存刷新。
+- 核心侧 40 项测试通过，覆盖广告解析与描述契约、六色转换与面板/控制器坐标、legacy 包结构、QuickLZ 往返、CLI 输出契约、verified/legacy 传输状态机、GATT 缓存刷新、manifest 版本与常量一致性。
 - 插件路径、状态存储、核心安装（含下载失败保留旧核心、SHA 不一致拒绝安装）、扫描输出解析均有用例覆盖。
 - 安装链路实测：本地 HTTP 提供 tarball → 下载 → 解压归一化 → 原子替换 → 创建 venv → 安装依赖 → `todoocard_core --version` 自检，全部通过；安装后的核心可直接扫描与转换。
 - 真机 BLE（macOS）：扫描到两台 TodooCard（固件 v185，`manufacturer=0x5053`、`screen=0x134C`、turbo 开启），已配对设备完成加密探测并读到电量。

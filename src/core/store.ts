@@ -7,11 +7,11 @@ import { statePaths } from "./paths";
  * 默认来源钉死到通用核心仓库的首个提交，并校验该提交 tarball 的 SHA-256。
  * 更新核心时改这两个常量（或让用户手动把来源改成新的 commit / main）。
  */
-export const PINNED_COMMIT = "df8fe4fb734363f4826f94051e7d4f5e08002290";
+export const PINNED_COMMIT = "8c72df5d2640cb3f556cea7270efe637c25a6238";
 export const DEFAULT_SOURCE_URL = PINNED_COMMIT
   ? `https://github.com/Gt841/plugin-todoocard-general-core/commit/${PINNED_COMMIT}`
   : "https://github.com/Gt841/plugin-todoocard-general-core";
-export const PINNED_SHA256 = "326acecf56b7607620700af4211f8db92d0b736bc13393928aeec11695ff56e4";
+export const PINNED_SHA256 = "7227befb27aec20465ca763419d91ad98db339ead03f45d0b02aa09fdef6a041";
 
 export const DEFAULT_SETTINGS: Settings = {
   coreSourceUrl: DEFAULT_SOURCE_URL,
